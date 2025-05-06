@@ -7,79 +7,101 @@ class SJFApp:
     def __init__(self, root):
         self.root = root
         self.root.title("SJF Preemptive Scheduling Simulator")
+        self.applyDarkMode()
         
         self.processes = []
-        self.gantt_data = []
+        self.ganttData = []
         
-        self.create_widgets()
+        self.createWidgets()
+
+    def applyDarkMode(self):
+        style = ttk.Style(self.root)
+        self.root.configure(bg="#2e2e2e")
+        style.theme_use("default")
+
+        style.configure(".", background="#2e2e2e", foreground="white", fieldbackground="#3e3e3e")
+        style.configure("TFrame", background="#2e2e2e")
+        style.configure("TLabel", background="#2e2e2e", foreground="white")
+        style.configure("TEntry", fieldbackground="#3e3e3e", foreground="white")
+        style.configure("TButton", background="#3e3e3e", foreground="white")
+        style.configure("Treeview", background="#3e3e3e", fieldbackground="#3e3e3e", foreground="white")
+        style.configure("Treeview.Heading", background="#1e1e1e", foreground="white")
+
+    def createWidgets(self):
+        mainFrame = ttk.Frame(self.root, padding=10)
+        mainFrame.pack(fill=tk.BOTH, expand=True)
         
-    def create_widgets(self):
-        main_frame = ttk.Frame(self.root, padding=10)
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        # simple Frame instead of LabelFrame
+        inputFrame = ttk.Frame(mainFrame, padding=10)
+        inputFrame.pack(fill=tk.X, pady=5)
         
-        # Input controls
-        input_frame = ttk.LabelFrame(main_frame, text="Input Parameters", padding=10)
-        input_frame.pack(fill=tk.X, pady=5)
+        ttk.Label(inputFrame, text="Number of Processes (1–10):").grid(row=0, column=0, padx=5)
+        self.numProcesses = tk.Entry(inputFrame, width=10, validate="key")
+        vcmd = (self.numProcesses.register(self.validateNumber), '%P')
+        self.numProcesses.config(validatecommand=vcmd)
+        self.numProcesses.grid(row=0, column=1, padx=5)
         
-        ttk.Label(input_frame, text="Number of Processes:").grid(row=0, column=0, padx=5)
-        self.num_processes = tk.Entry(input_frame, width=10, validate="key")
-        self.num_processes['validatecommand'] = (self.num_processes.register(self.validate_number), '%P')
-        self.num_processes.grid(row=0, column=1, padx=5)
+        ttk.Button(inputFrame, text="Create Process Table", command=self.createProcessTable).grid(row=0, column=2, padx=5)
         
-        ttk.Button(input_frame, text="Create Process Table", 
-                  command=self.create_process_table).grid(row=0, column=2, padx=5)
+        self.tableFrame = ttk.Frame(mainFrame)
+        self.tableFrame.pack(fill=tk.BOTH, expand=True, pady=5)
         
-        # Process table frame
-        self.table_frame = ttk.Frame(main_frame)
-        self.table_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        self.resultsFrame = ttk.Frame(mainFrame)
         
-        # Results frame
-        self.results_frame = ttk.Frame(main_frame)
-        
-        # Simulation button
-        ttk.Button(main_frame, text="Run Simulation", 
-                  command=self.run_simulation).pack(pady=5)
-        
-    def validate_number(self, value):
+        ttk.Button(mainFrame, text="Run Simulation", command=self.runSimulation).pack(pady=5)
+
+    def validateNumber(self, value):
         return value.isdigit() or value == ""
-    
-    def create_process_table(self):
-        # Clear previous table
-        for widget in self.table_frame.winfo_children():
+
+    def createProcessTable(self):
+        # Clear any previous table
+        for widget in self.tableFrame.winfo_children():
             widget.destroy()
         
+        # Validate and limit number of processes
         try:
-            n = int(self.num_processes.get())
-            if n <= 0:
+            n = int(self.numProcesses.get())
+            if not (1 <= n <= 10):
                 raise ValueError
         except:
-            messagebox.showerror("Error", "Please enter a valid number of processes")
+            messagebox.showerror("Error", "Please enter a valid number of processes (1–10).")
             return
         
-        # Create table headers
-        ttk.Label(self.table_frame, text="Process").grid(row=0, column=0, padx=5)
-        ttk.Label(self.table_frame, text="Arrival Time").grid(row=0, column=1, padx=5)
-        ttk.Label(self.table_frame, text="Burst Time").grid(row=0, column=2, padx=5)
+        # Header row
+        ttk.Label(self.tableFrame, text="Process").grid(row=0, column=0, padx=5)
+        ttk.Label(self.tableFrame, text="Arrival Time").grid(row=0, column=1, padx=5)
+        ttk.Label(self.tableFrame, text="Burst Time").grid(row=0, column=2, padx=5)
         
-        # Create entry fields
-        self.process_entries = []
+        # Entry rows
+        self.processEntries = []
         for i in range(n):
-            ttk.Label(self.table_frame, text=f"P{i+1}").grid(row=i+1, column=0, padx=5)
-            arrival = tk.Entry(self.table_frame, width=10, validate="key")
-            arrival['validatecommand'] = (arrival.register(self.validate_number), '%P')
+            ttk.Label(self.tableFrame, text=f"P{i+1}").grid(row=i+1, column=0, padx=5)
+            arrival = tk.Entry(self.tableFrame, width=10, validate="key")
+            arrival.config(validatecommand=(arrival.register(self.validateNumber), '%P'))
             arrival.grid(row=i+1, column=1, padx=5)
-            burst = tk.Entry(self.table_frame, width=10, validate="key")
-            burst['validatecommand'] = (burst.register(self.validate_number), '%P')
+            burst = tk.Entry(self.tableFrame, width=10, validate="key")
+            burst.config(validatecommand=(burst.register(self.validateNumber), '%P'))
             burst.grid(row=i+1, column=2, padx=5)
-            self.process_entries.append((arrival, burst))
-        
-    def run_simulation(self):
+            self.processEntries.append((arrival, burst))
+
+    def runSimulation(self):
+        # 1) Check that the table has been created
+        if not hasattr(self, 'processEntries') or len(self.processEntries) == 0:
+            messagebox.showerror("Error", "Please create the process table first.")
+            return
+
+        # 2) Read & validate process inputs
         try:
-            # Get process data
             self.processes = []
-            for i, (arrival_entry, burst_entry) in enumerate(self.process_entries):
-                arrival = int(arrival_entry.get())
-                burst = int(burst_entry.get())
+            for i, (arrivalEntry, burstEntry) in enumerate(self.processEntries):
+                arrival_str = arrivalEntry.get().strip()
+                burst_str   = burstEntry.get().strip()
+                # Check for empty fields
+                if arrival_str == "" or burst_str == "":
+                    messagebox.showerror("Error", "Please fill in all arrival and burst times.")
+                    return
+                arrival = int(arrival_str)
+                burst   = int(burst_str)
                 if arrival < 0 or burst <= 0:
                     raise ValueError
                 self.processes.append({
@@ -92,137 +114,103 @@ class SJFApp:
                     'waiting': 0,
                     'response': -1
                 })
-        except:
-            messagebox.showerror("Error", "Invalid input values! Ensure all fields are valid (arrival ≥ 0, burst > 0)")
+        except ValueError:
+            messagebox.showerror("Error", "Invalid input values! Arrival must be ≥ 0 and Burst > 0.")
             return
         
-        # Run SJF Preemptive simulation
-        self.simulate_sjf()
-        
-        # Calculate metrics
-        self.calculate_metrics()
-        
-        # Display results
-        self.show_results()
-        
-    def simulate_sjf(self):
+        # All good → run, calculate, and display
+        self.simulateSJF()
+        self.calculateMetrics()
+        self.showResults()
+
+    def simulateSJF(self):
         time = 0
         completed = 0
-        current_pid = -1
+        currentPid = -1
         n = len(self.processes)
-        self.gantt_data = []
+        self.ganttData = []
         
         while completed < n:
-            # Find arrived processes with remaining time
             ready = [p for p in self.processes if p['arrival'] <= time and p['remaining'] > 0]
-            
             if not ready:
                 time += 1
                 continue
-                
-            # Find process with shortest remaining time
-            shortest = min(ready, key=lambda x: x['remaining'])
             
-            if shortest['pid'] != current_pid:
-                if current_pid != -1 and self.processes[current_pid-1]['remaining'] > 0:
-                    # Record preemption
-                    self.gantt_data[-1]['end'] = time
-                
-                current_pid = shortest['pid']
+            shortest = min(ready, key=lambda p: p['remaining'])
+            
+            if shortest['pid'] != currentPid:
+                if currentPid != -1 and self.processes[currentPid-1]['remaining'] > 0:
+                    self.ganttData[-1]['end'] = time
+                currentPid = shortest['pid']
                 if shortest['response'] == -1:
                     shortest['response'] = time - shortest['arrival']
                 if shortest['start_time'] == -1:
                     shortest['start_time'] = time
-                self.gantt_data.append({
-                    'pid': current_pid,
-                    'start': time,
-                    'end': time+1
-                })
+                self.ganttData.append({'pid': currentPid, 'start': time, 'end': time+1})
             else:
-                self.gantt_data[-1]['end'] += 1
-                
+                self.ganttData[-1]['end'] += 1
+            
             shortest['remaining'] -= 1
             time += 1
             
             if shortest['remaining'] == 0:
                 completed += 1
                 shortest['finish_time'] = time
-                current_pid = -1
-                
-    def calculate_metrics(self):
-        total_waiting = 0
-        total_turnaround = 0
-        total_response = 0
-        
+                currentPid = -1
+
+    def calculateMetrics(self):
+        totalW = totalT = totalR = 0
         for p in self.processes:
             p['turnaround'] = p['finish_time'] - p['arrival']
-            p['waiting'] = p['turnaround'] - p['burst']
-            total_waiting += p['waiting']
-            total_turnaround += p['turnaround']
-            total_response += p['response']
-            
-        self.avg_waiting = total_waiting / len(self.processes)
-        self.avg_turnaround = total_turnaround / len(self.processes)
-        self.avg_response = total_response / len(self.processes)
-        
-    def show_results(self):
-        # Clear previous results
-        for widget in self.results_frame.winfo_children():
+            p['waiting']    = p['turnaround'] - p['burst']
+            totalW += p['waiting']
+            totalT += p['turnaround']
+            totalR += p['response']
+        self.avgWaiting    = totalW / len(self.processes)
+        self.avgTurnaround = totalT / len(self.processes)
+        self.avgResponse   = totalR / len(self.processes)
+
+    def showResults(self):
+        for widget in self.resultsFrame.winfo_children():
             widget.destroy()
-        
-        self.results_frame.pack(fill=tk.BOTH, expand=True, pady=10)
-        
-        # Results table
-        columns = ('PID', 'Arrival', 'Burst', 'Finish', 'Waiting', 'Turnaround', 'Response')
-        tree = ttk.Treeview(self.results_frame, columns=columns, show='headings')
-        
-        for col in columns:
-            tree.heading(col, text=col)
-            tree.column(col, width=80, anchor=tk.CENTER)
-            
+        self.resultsFrame.pack(fill=tk.BOTH, expand=True, pady=10)
+
+        leftFrame = ttk.Frame(self.resultsFrame)
+        leftFrame.pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        rightFrame = ttk.Frame(self.resultsFrame)
+        rightFrame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        cols = ('PID','Arrival','Burst','Finish','Waiting','Turnaround','Response')
+        tree = ttk.Treeview(leftFrame, columns=cols, show='headings', height=10)
+        for c in cols:
+            tree.heading(c, text=c)
+            tree.column(c, width=80, anchor=tk.CENTER)
         for p in self.processes:
             tree.insert('', tk.END, values=(
-                p['pid'],
-                p['arrival'],
-                p['burst'],
-                p['finish_time'],
-                p['waiting'],
-                p['turnaround'],
-                p['response']
+                p['pid'], p['arrival'], p['burst'],
+                p['finish_time'], p['waiting'],
+                p['turnaround'], p['response']
             ))
-            
-        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
-        # Averages
-        avg_frame = ttk.Frame(self.results_frame, padding=10)
-        avg_frame.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        ttk.Label(avg_frame, text=f"Average Waiting Time: {self.avg_waiting:.2f}").pack(pady=5)
-        ttk.Label(avg_frame, text=f"Average Turnaround Time: {self.avg_turnaround:.2f}").pack(pady=5)
-        ttk.Label(avg_frame, text=f"Average Response Time: {self.avg_response:.2f}").pack(pady=5)
-        
-        # Gantt chart
-        self.create_gantt_chart()
-        
-    def create_gantt_chart(self):
-        fig = Figure(figsize=(8, 4), dpi=100)
+        tree.pack(pady=5)
+
+        avgF = ttk.Frame(leftFrame, padding=5)
+        avgF.pack(pady=5)
+        ttk.Label(avgF, text=f"Average Waiting Time: {self.avgWaiting:.2f}").pack(pady=2)
+        ttk.Label(avgF, text=f"Average Turnaround Time: {self.avgTurnaround:.2f}").pack(pady=2)
+        ttk.Label(avgF, text=f"Average Response Time: {self.avgResponse:.2f}").pack(pady=2)
+
+        self.createGanttChart(rightFrame)
+
+    def createGanttChart(self, parent):
+        fig = Figure(figsize=(6,4), dpi=100)
         ax = fig.add_subplot(111)
-        
-        y_ticks = []
-        y_labels = []
-        
-        for i, event in enumerate(self.gantt_data):
-            ax.broken_barh([(event['start'], event['end'] - event['start'])],
-                          (i, 1), facecolors=('tab:blue'))
-            y_ticks.append(i + 0.5)
-            y_labels.append(f"P{event['pid']}")
-            
-        ax.set_yticks(y_ticks)
-        ax.set_yticklabels(y_labels)
-        ax.set_xlabel("Time")
-        ax.set_title("Gantt Chart")
-        
-        canvas = FigureCanvasTkAgg(fig, master=self.results_frame)
+        yTicks = []; yLabels = []
+        for i, ev in enumerate(self.ganttData):
+            ax.broken_barh([(ev['start'], ev['end']-ev['start'])], (i,1), facecolors=('tab:blue'))
+            yTicks.append(i+0.5); yLabels.append(f"P{ev['pid']}")
+        ax.set_yticks(yTicks); ax.set_yticklabels(yLabels)
+        ax.set_xlabel("Time"); ax.set_title("Gantt Chart")
+        canvas = FigureCanvasTkAgg(fig, master=parent)
         canvas.draw()
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
