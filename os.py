@@ -64,7 +64,7 @@ class SJFApp:
             if not (1 <= n <= 10):
                 raise ValueError
         except:
-            messagebox.showerror("Error", "Please enter a valid number of processes (1–10).")
+            messagebox.showerror("Error", "Please enter a valid number of processes (1-10).")
             return
         
         # Header row
@@ -115,7 +115,7 @@ class SJFApp:
                     'response': -1
                 })
         except ValueError:
-            messagebox.showerror("Error", "Invalid input values! Arrival must be ≥ 0 and Burst > 0.")
+            messagebox.showerror("Error", "Invalid input values! Arrival must be ≥ 0 and Burst > 0.")
             return
         
         # All good → run, calculate, and display
