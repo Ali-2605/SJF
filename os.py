@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.patches import Rectangle
 
 class SJFApp:
     def __init__(self, root):
@@ -31,7 +32,6 @@ class SJFApp:
         mainFrame = ttk.Frame(self.root, padding=10)
         mainFrame.pack(fill=tk.BOTH, expand=True)
         
-        # simple Frame instead of LabelFrame
         inputFrame = ttk.Frame(mainFrame, padding=10)
         inputFrame.pack(fill=tk.X, pady=5)
         
@@ -54,11 +54,9 @@ class SJFApp:
         return value.isdigit() or value == ""
 
     def createProcessTable(self):
-        # Clear any previous table
         for widget in self.tableFrame.winfo_children():
             widget.destroy()
         
-        # Validate and limit number of processes
         try:
             n = int(self.numProcesses.get())
             if not (1 <= n <= 10):
@@ -67,12 +65,10 @@ class SJFApp:
             messagebox.showerror("Error", "Please enter a valid number of processes (1-10).")
             return
         
-        # Header row
         ttk.Label(self.tableFrame, text="Process").grid(row=0, column=0, padx=5)
         ttk.Label(self.tableFrame, text="Arrival Time").grid(row=0, column=1, padx=5)
         ttk.Label(self.tableFrame, text="Burst Time").grid(row=0, column=2, padx=5)
         
-        # Entry rows
         self.processEntries = []
         for i in range(n):
             ttk.Label(self.tableFrame, text=f"P{i+1}").grid(row=i+1, column=0, padx=5)
@@ -118,7 +114,6 @@ class SJFApp:
             messagebox.showerror("Error", "Invalid input values! Arrival must be ≥ 0 and Burst > 0.")
             return
         
-        # All good → run, calculate, and display
         self.simulateSJF()
         self.calculateMetrics()
         self.showResults()
@@ -202,42 +197,42 @@ class SJFApp:
         self.createGanttChart(rightFrame)
 
     def createGanttChart(self, parent):
-        from matplotlib.patches import Rectangle
 
         fig = Figure(figsize=(6, 2), dpi=100)
         ax  = fig.add_subplot(111)
 
-        # Draw each segment on the same “lane” at y=0
         for ev in self.ganttData:
-            start   = ev['start']
-            length  = ev['end'] - ev['start']
-            pid     = ev['pid']
+            start  = ev['start']
+            end    = ev['end']
+            length = end - start
+            pid    = ev['pid']
 
-            # coloured rectangle
-            rect = Rectangle((start, 0), length, 1, facecolor='tab:blue', edgecolor='black')
+            rect = Rectangle((start, 0), length, 1,
+                             facecolor='tab:blue', edgecolor='black')
             ax.add_patch(rect)
-
-            # centred process label
             ax.text(start + length/2, 0.5, f"P{pid}",
                     ha='center', va='center', color='white', fontsize=10)
 
-        # cosmetics: one track only
+        ticks = sorted({
+            t
+            for ev in self.ganttData
+            for t in (ev['start'], ev['end'])
+        })
+        ax.set_xticks(ticks)
+        ax.set_xticklabels([str(t) for t in ticks])
+
         ax.set_ylim(0, 1)
-        ax.set_yticks([])                  # no y‐axis ticks
+        ax.set_yticks([])
         ax.set_xlabel("Time")
         ax.set_title("Gantt Chart")
 
-        # set x‐limits to span entire timeline
-        min_start = min(ev['start'] for ev in self.ganttData)
-        max_end   = max(ev['end']   for ev in self.ganttData)
-        ax.set_xlim(min_start, max_end)
-
-        # tighten up
-        ax.grid(axis='x', linestyle='--', alpha=0.3)
+        ax.grid(axis='x', linestyle='--', alpha=0.4)
 
         canvas = FigureCanvasTkAgg(fig, master=parent)
         canvas.draw()
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+
 
 
 if __name__ == "__main__":
