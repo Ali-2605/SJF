@@ -35,7 +35,7 @@ class SJFApp:
         inputFrame = ttk.Frame(mainFrame, padding=10)
         inputFrame.pack(fill=tk.X, pady=5)
         
-        ttk.Label(inputFrame, text="Number of Processes (1–10):").grid(row=0, column=0, padx=5)
+        ttk.Label(inputFrame, text="Number of Processes (1-10):").grid(row=0, column=0, padx=5)
         self.numProcesses = tk.Entry(inputFrame, width=10, validate="key")
         vcmd = (self.numProcesses.register(self.validateNumber), '%P')
         self.numProcesses.config(validatecommand=vcmd)
@@ -202,17 +202,43 @@ class SJFApp:
         self.createGanttChart(rightFrame)
 
     def createGanttChart(self, parent):
-        fig = Figure(figsize=(6,4), dpi=100)
-        ax = fig.add_subplot(111)
-        yTicks = []; yLabels = []
-        for i, ev in enumerate(self.ganttData):
-            ax.broken_barh([(ev['start'], ev['end']-ev['start'])], (i,1), facecolors=('tab:blue'))
-            yTicks.append(i+0.5); yLabels.append(f"P{ev['pid']}")
-        ax.set_yticks(yTicks); ax.set_yticklabels(yLabels)
-        ax.set_xlabel("Time"); ax.set_title("Gantt Chart")
+        from matplotlib.patches import Rectangle
+
+        fig = Figure(figsize=(6, 2), dpi=100)
+        ax  = fig.add_subplot(111)
+
+        # Draw each segment on the same “lane” at y=0
+        for ev in self.ganttData:
+            start   = ev['start']
+            length  = ev['end'] - ev['start']
+            pid     = ev['pid']
+
+            # coloured rectangle
+            rect = Rectangle((start, 0), length, 1, facecolor='tab:blue', edgecolor='black')
+            ax.add_patch(rect)
+
+            # centred process label
+            ax.text(start + length/2, 0.5, f"P{pid}",
+                    ha='center', va='center', color='white', fontsize=10)
+
+        # cosmetics: one track only
+        ax.set_ylim(0, 1)
+        ax.set_yticks([])                  # no y‐axis ticks
+        ax.set_xlabel("Time")
+        ax.set_title("Gantt Chart")
+
+        # set x‐limits to span entire timeline
+        min_start = min(ev['start'] for ev in self.ganttData)
+        max_end   = max(ev['end']   for ev in self.ganttData)
+        ax.set_xlim(min_start, max_end)
+
+        # tighten up
+        ax.grid(axis='x', linestyle='--', alpha=0.3)
+
         canvas = FigureCanvasTkAgg(fig, master=parent)
         canvas.draw()
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
 
 if __name__ == "__main__":
     root = tk.Tk()
